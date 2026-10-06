@@ -54,7 +54,27 @@ app.post("/api/admin/login", (req, res) => {
   res.json({ token });
 });
 
+/* ── Pengaturan tampilan (logo kiri/kanan atas) ── */
+const DEFAULT_SETTINGS = {
+  logoLeft: { visible: true, height: 130 },
+  logoRight: { visible: true, height: 110 },
+};
+const readSettings = async () => {
+  const { rows } = await pool.query("SELECT value FROM settings WHERE key='display'");
+  const saved = rows[0]?.value || {};
+  return {
+    logoLeft: { ...DEFAULT_SETTINGS.logoLeft, ...saved.logoLeft },
+    logoRight: { ...DEFAULT_SETTINGS.logoRight, ...saved.logoRight },
+  };
+};
+const cleanLogo = (v, def) => ({
+  visible: typeof v?.visible === "boolean" ? v.visible : def.visible,
+  height: Number.isFinite(Number(v?.height)) ? Math.min(400, Math.max(20, Math.round(Number(v.height)))) : def.height,
+});
+
 /* ── Publik (layar undian) ── */
+
+app.get("/api/settings", h(async (_req, res) => res.json(await readSettings())));
 
 // Semua peserta (untuk animasi acak di layar). Tanpa msisdn.
 app.get("/api/pool", h(async (_req, res) => {
@@ -185,6 +205,18 @@ admin.post("/reset", h(async (req, res) => {
     ? await pool.query(`${clear} WHERE status='won' AND prize_id=$1`, [Number(prizeId)])
     : await pool.query(`${clear} WHERE status<>'available'`);
   res.json({ reset: r.rowCount });
+}));
+
+admin.put("/settings", h(async (req, res) => {
+  const cur = await readSettings();
+  const next = {
+    logoLeft: cleanLogo(req.body?.logoLeft, cur.logoLeft),
+    logoRight: cleanLogo(req.body?.logoRight, cur.logoRight),
+  };
+  await pool.query(
+    "INSERT INTO settings (key, value) VALUES ('display', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+    [JSON.stringify(next)]);
+  res.json(next);
 }));
 
 app.use("/api/admin", admin);

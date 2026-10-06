@@ -33,6 +33,10 @@ export async function initSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_participants_status ON participants(status);
     CREATE INDEX IF NOT EXISTS idx_participants_prize ON participants(prize_id);
+    CREATE TABLE IF NOT EXISTS settings (
+      key   TEXT PRIMARY KEY,
+      value JSONB NOT NULL
+    );
   `);
 }
 
